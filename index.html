@@ -82,6 +82,24 @@
     .display{font-size:64px}
     .display .xian{font-size:40px}
   }
+
+  /* 小窗样式（Document PiP 窗口内） */
+  .pip-body{
+    background:var(--bg); color:var(--text); margin:0;
+    height:100vh; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:18px;
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  }
+  .pip-display{
+    font-size:56px; font-weight:700; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+    min-height:64px;
+  }
+  .pip-display .xian{font-size:34px;color:var(--muted);margin:0 2px}
+  .pip-display .str{color:var(--accent)}
+  .pip-display .note{color:var(--accent-2)}
+  .pip-display .hint{font-size:20px;color:var(--muted);font-weight:400}
+  .pip-btn{min-width:120px}
 </style>
 </head>
 <body>
@@ -123,6 +141,7 @@
         <button class="primary" id="btnStart">开始</button>
         <button id="btnPause" disabled>暂停</button>
         <button class="danger" id="btnStop" disabled>停止</button>
+        <button id="btnPip">小窗</button>
       </div>
       <div class="stats">
         <span>已播报<b id="count">0</b></span>
@@ -227,9 +246,10 @@
   const $ = id=>document.getElementById(id);
 
   function render(it){
-    if(!it){ $('display').innerHTML='<span class="hint">点开始进行练习</span>'; return; }
-    $('display').innerHTML =
+    if(!it) $('display').innerHTML='<span class="hint">点开始进行练习</span>';
+    else $('display').innerHTML =
       `<span class="str">${it.str}</span><span class="xian">弦</span><span class="note">${it.note}</span>`;
+    syncPip();
   }
   function pushHistory(it){
     const tag=document.createElement('div'); tag.className='tag';
@@ -304,11 +324,13 @@
     $('btnStart').disabled=true; $('btnPause').disabled=false; $('btnStop').disabled=false;
     $('btnPause').textContent='暂停';
     loop(myGen);
+    syncPip();
   }
   function togglePause(){
     if(!running) return;
     paused=!paused;
     $('btnPause').textContent=paused?'继续':'暂停';
+    syncPip();
   }
   function stopAll(){
     gen++;
@@ -317,12 +339,50 @@
     $('btnStart').disabled=false; $('btnPause').disabled=true; $('btnStop').disabled=true;
     $('btnPause').textContent='暂停'; $('cd').textContent='—';
     render(null);
+    syncPip();
   }
   function showToast(msg){ const t=$('toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',3000); }
+
+  // 小窗悬浮（Document Picture-in-Picture）
+  let pipWindow=null, pipDisplay=null, pipBtn=null;
+  async function openPip(){
+    if(!('documentPictureInPicture' in window)){ showToast('当前浏览器不支持小窗功能'); return; }
+    if(pipWindow) return;
+    try{
+      pipWindow = await documentPictureInPicture.requestWindow({width:340, height:220});
+    }catch(e){ showToast('打开小窗失败'); return; }
+    [...document.styleSheets].forEach(sheet=>{
+      try{
+        const css=[...sheet.cssRules].map(r=>r.cssText).join('\n');
+        const s=pipWindow.document.createElement('style'); s.textContent=css;
+        pipWindow.document.head.appendChild(s);
+      }catch(e){}
+    });
+    pipWindow.document.body.className='pip-body';
+    pipDisplay=pipWindow.document.createElement('div');
+    pipDisplay.className='pip-display';
+    pipBtn=pipWindow.document.createElement('button');
+    pipBtn.className='primary pip-btn';
+    pipBtn.onclick=()=>{ running ? stopAll() : start(); };
+    pipWindow.document.body.append(pipDisplay, pipBtn);
+    pipWindow.addEventListener('pagehide', ()=>{
+      pipWindow=null; pipDisplay=null; pipBtn=null;
+      $('btnPip').textContent='小窗';
+    });
+    $('btnPip').textContent='关闭小窗';
+    syncPip();
+  }
+  function syncPip(){
+    if(!pipDisplay) return;
+    pipDisplay.innerHTML=$('display').innerHTML;
+    pipBtn.textContent = running ? (paused?'继续':'停止') : '开始';
+    pipBtn.className = running ? 'danger pip-btn' : 'primary pip-btn';
+  }
 
   $('btnStart').onclick=start;
   $('btnPause').onclick=togglePause;
   $('btnStop').onclick=stopAll;
+  $('btnPip').onclick=openPip;
   const preloadPromise = preload();
 </script>
 </body>
