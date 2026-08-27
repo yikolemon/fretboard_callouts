@@ -49,11 +49,24 @@ python -m http.server 8000
 guitar-nota/
 ├── index.html          # 单页应用
 ├── generate_audio.py   # 音频片段生成脚本
+├── app.py              # 桌面应用启动脚本（pywebview）
 ├── audio/              # 预生成的音频片段
 │   ├── 1.mp3 ~ 6.mp3   # 弦号
 │   └── C.mp3 ... Gs.mp3# 音名（含升号）
 └── .gitignore
 ```
+
+## 打包成可执行程序
+
+使用 PyWebView + PyInstaller 打包成 Windows 单 exe（双击即用，无需安装 Python）：
+
+```bash
+pip install pywebview pyinstaller
+pyinstaller --noconfirm --onefile --windowed --name "guitar-nota" ^
+  --add-data "index.html;." --add-data "audio;audio" app.py
+```
+
+生成的可执行文件位于 `dist/guitar-nota.exe`（约 18MB）。
 
 ## 浏览器要求
 
