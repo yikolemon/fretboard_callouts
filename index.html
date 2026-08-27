@@ -347,7 +347,7 @@
   let pipWindow=null, pipDisplay=null, pipBtn=null;
   async function openPip(){
     if(!('documentPictureInPicture' in window)){ showToast('当前浏览器不支持小窗功能'); return; }
-    if(pipWindow) return;
+    if(pipWindow){ pipWindow.close(); return; }
     try{
       pipWindow = await documentPictureInPicture.requestWindow({width:340, height:220});
     }catch(e){ showToast('打开小窗失败'); return; }
