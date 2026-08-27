@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>吉他弦音播报练习</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel-2:#1f232d; --border:#2a2f3a;
+    --text:#e6e8ee; --muted:#8a909c; --accent:#ff8a3d; --accent-2:#4aa8ff;
+    --ok:#3dd97a; --danger:#ff5d5d;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column; align-items:center;
+    padding:24px 16px 40px; min-height:100%;
+  }
+  header{width:100%;max-width:720px;margin-bottom:18px}
+  header h1{font-size:20px;font-weight:600;letter-spacing:.5px}
+  header p{color:var(--muted);font-size:13px;margin-top:4px}
+  main{width:100%;max-width:720px;display:flex;flex-direction:column;gap:16px}
+
+  .panel{
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:14px; padding:16px 18px;
+  }
+  .settings{display:grid; grid-template-columns:1fr 1fr; gap:12px 16px}
+  .settings .full{grid-column:1/-1}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  .field input[type=number]{
+    width:100%; background:var(--panel-2); border:1px solid var(--border);
+    color:var(--text); border-radius:8px; padding:8px 10px; font-size:15px;
+  }
+  .field input[type=range]{width:100%}
+  .check{display:flex;align-items:center;gap:8px;font-size:14px}
+  .check input{width:18px;height:18px;accent-color:var(--accent)}
+
+  .stage{display:flex;flex-direction:column;align-items:center;gap:18px;padding:28px 18px}
+  .display{
+    font-size:88px; font-weight:700; letter-spacing:2px; line-height:1;
+    min-height:96px; display:flex; align-items:center; justify-content:center;
+    color:var(--text);
+  }
+  .display .str{color:var(--accent)}
+  .display .xian{font-size:54px;color:var(--muted);margin:0 2px 0 2px}
+  .display .note{color:var(--accent-2)}
+  .display .hint{font-size:22px;color:var(--muted);font-weight:400}
+
+  .controls{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+  button{
+    border:1px solid var(--border); background:var(--panel-2); color:var(--text);
+    border-radius:10px; padding:10px 22px; font-size:15px; cursor:pointer;
+    font-family:inherit; transition:all .15s; min-width:96px;
+  }
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#1a1206;font-weight:600}
+  button.primary:hover{filter:brightness(1.08);color:#1a1206}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  button.danger:hover{border-color:var(--danger);color:var(--danger)}
+
+  .stats{display:flex;gap:24px;justify-content:center;color:var(--muted);font-size:13px}
+  .stats b{color:var(--text);font-size:16px;margin-left:4px}
+
+  .history{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;min-height:34px}
+  .history .tag{
+    background:var(--panel-2); border:1px solid var(--border); border-radius:8px;
+    padding:5px 12px; font-size:14px; color:var(--muted);
+  }
+  .history .tag:first-child{color:var(--text);border-color:var(--accent)}
+  .history .empty{color:var(--muted);font-size:13px}
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:var(--panel-2);border:1px solid var(--danger);color:var(--danger);
+    padding:10px 18px;border-radius:10px;font-size:13px;display:none;
+  }
+  @media (max-width:520px){
+    .settings{grid-template-columns:1fr}
+    .display{font-size:64px}
+    .display .xian{font-size:40px}
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>吉他弦音播报练习</h1>
+    <p>设置间隔，自动播报「弦号 + 音名」，用预生成音频拼接播放</p>
+  </header>
+
+  <main>
+    <section class="panel settings">
+      <div class="field">
+        <label>间隔时间（秒）</label>
+        <input type="number" id="interval" value="3" min="1" max="30" step="0.5">
+      </div>
+      <div class="field">
+        <label>不重复数 N</label>
+        <input type="number" id="norepeat" value="8" min="0" max="30" step="1">
+      </div>
+      <div class="field">
+        <label>品位范围 起</label>
+        <input type="number" id="fretLo" value="0" min="0" max="24" step="1">
+      </div>
+      <div class="field">
+        <label>品位范围 止</label>
+        <input type="number" id="fretHi" value="7" min="0" max="24" step="1">
+      </div>
+      <div class="field">
+        <label>音量</label>
+        <input type="range" id="volume" min="0" max="1" step="0.05" value="1">
+      </div>
+      <div class="field check" style="align-self:end">
+        <input type="checkbox" id="sharps"><label for="sharps" style="margin:0">包含升降号 (#)</label>
+      </div>
+    </section>
+
+    <section class="panel stage">
+      <div class="display" id="display"><span class="hint">点开始进行练习</span></div>
+      <div class="controls">
+        <button class="primary" id="btnStart">开始</button>
+        <button id="btnPause" disabled>暂停</button>
+        <button class="danger" id="btnStop" disabled>停止</button>
+      </div>
+      <div class="stats">
+        <span>已播报<b id="count">0</b></span>
+        <span>下一组倒计时<b id="cd">—</b></span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">最近播报</div>
+      <div class="history" id="history"><span class="empty">尚无</span></div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  // 标准调弦空弦音半音索引（C=0 ... B=11）
+  const STRINGS = {1:4, 2:11, 3:7, 4:2, 5:9, 6:4};
+  const NOTE_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  const SHARP_IDX = new Set([1,3,6,8,10]); // C# D# F# G# A#
+
+  function audioForNote(n){ return n.length===2 ? n[0]+'s.mp3' : n+'.mp3'; }
+  function keyOf(it){ return it.str + '-' + it.note; }
+
+  // 音频上下文与预解码（拼接播放，无缝衔接）
+  const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  const cache = {};
+  async function decodeFile(file){
+    const resp = await fetch('audio/'+file);
+    const arr = await resp.arrayBuffer();
+    return await audioCtx.decodeAudioData(arr);
+  }
+  async function preload(){
+    const files=[];
+    for(let s=1;s<=6;s++) files.push(s+'.mp3');
+    NOTE_NAMES.forEach(n=>files.push(audioForNote(n)));
+    await Promise.all(files.map(async f=>{ cache[f]=await decodeFile(f); }));
+  }
+  // 裁掉尾部静音，让衔接更紧凑
+  function trimTail(buffer, threshold=0.012, pad=300){
+    const data=buffer.getChannelData(0);
+    let end=data.length;
+    while(end>0 && Math.abs(data[end-1])<threshold) end--;
+    end+=pad; if(end>=data.length) return buffer;
+    const out=audioCtx.createBuffer(buffer.numberOfChannels,end,buffer.sampleRate);
+    for(let c=0;c<buffer.numberOfChannels;c++){
+      out.getChannelData(c).set(buffer.getChannelData(c).subarray(0,end));
+    }
+    return out;
+  }
+  // 拼接多段 buffer 为一段连续播放
+  function concatBuffers(buffers){
+    const ch=buffers[0].numberOfChannels;
+    const total=buffers.reduce((a,b)=>a+b.length,0);
+    const out=audioCtx.createBuffer(ch,total,buffers[0].sampleRate);
+    for(let c=0;c<ch;c++){
+      let off=0;
+      for(const b of buffers){ out.getChannelData(c).set(b.getChannelData(c),off); off+=b.length; }
+    }
+    return out;
+  }
+  async function playSequence(files){
+    const buffers=files.map(f=>cache[f]?trimTail(cache[f]):null).filter(Boolean);
+    if(!buffers.length) return;
+    const combined=concatBuffers(buffers);
+    const src=audioCtx.createBufferSource();
+    src.buffer=combined;
+    const gain=audioCtx.createGain();
+    gain.gain.value=parseFloat($('volume').value);
+    src.connect(gain).connect(audioCtx.destination);
+    currentSrc=src;
+    src.start();
+    await new Promise(r=>{ src.onended=()=>r(); });
+    if(currentSrc===src) currentSrc=null;
+  }
+
+  // 构建可选池
+  function buildPool(){
+    const lo = Math.max(0, parseInt(document.getElementById('fretLo').value)||0);
+    const hi = Math.min(24, parseInt(document.getElementById('fretHi').value)||0);
+    const sharps = document.getElementById('sharps').checked;
+    const lo2=Math.min(lo,hi), hi2=Math.max(lo,hi);
+    const pool=[];
+    for(let s=1;s<=6;s++){
+      const set=new Set();
+      for(let f=lo2;f<=hi2;f++){
+        const idx=(STRINGS[s]+f)%12;
+        if(!sharps && SHARP_IDX.has(idx)) continue;
+        set.add(idx);
+      }
+      for(const idx of set){
+        pool.push({str:s, note:NOTE_NAMES[idx], file:audioForNote(NOTE_NAMES[idx])});
+      }
+    }
+    return pool;
+  }
+
+  // 状态
+  let running=false, paused=false, count=0;
+  let recent=[], pool=[], cdTimer=null;
+  let gen=0, currentSrc=null;
+  const $ = id=>document.getElementById(id);
+
+  function render(it){
+    if(!it){ $('display').innerHTML='<span class="hint">点开始进行练习</span>'; return; }
+    $('display').innerHTML =
+      `<span class="str">${it.str}</span><span class="xian">弦</span><span class="note">${it.note}</span>`;
+  }
+  function pushHistory(it){
+    const tag=document.createElement('div'); tag.className='tag';
+    tag.textContent=`${it.str}弦 ${it.note}`;
+    const h=$('history');
+    if(h.querySelector('.empty')) h.innerHTML='';
+    h.prepend(tag);
+    while(h.children.length>10) h.removeChild(h.lastChild);
+  }
+  function pickNext(){
+    const n=parseInt($('norepeat').value)||0;
+    const avail=pool.filter(it=>!recent.includes(keyOf(it)));
+    let pick;
+    if(avail.length) pick=avail[Math.floor(Math.random()*avail.length)];
+    else pick=pool[Math.floor(Math.random()*pool.length)] || null;
+    if(pick){
+      recent.push(keyOf(pick));
+      if(n>0) while(recent.length>n) recent.shift();
+      else recent=[];
+    }
+    return pick;
+  }
+  function delay(ms){return new Promise(r=>setTimeout(r,ms));}
+
+  function startCountdown(t0, interval, myGen){
+    clearInterval(cdTimer);
+    const upd=()=>{
+      if(myGen!==gen || !running){ clearInterval(cdTimer); return; }
+      if(paused){ $('cd').textContent='已暂停'; return; }
+      const left=Math.max(0, Math.ceil(interval-(performance.now()-t0)/1000));
+      $('cd').textContent = left>0 ? left+'s' : '—';
+    };
+    upd();
+    cdTimer=setInterval(upd, 250);
+  }
+
+  async function loop(myGen){
+    while(running && myGen===gen){
+      if(paused){ await delay(150); continue; }
+      const interval=parseFloat($('interval').value)||1;
+      const t0=performance.now();
+      const it=pickNext();
+      if(!it){ showToast('当前范围内无可用音，请调整品位范围或开启升号'); stopAll(); return; }
+      render(it);
+      startCountdown(t0, interval, myGen);
+      await playSequence([`${it.str}.mp3`, audioForNote(it.note)]);
+      if(myGen!==gen) return;
+      count++; $('count').textContent=count;
+      pushHistory(it);
+      // 等待剩余时间，暂停时冻结倒计时（t0 后移）
+      let last=performance.now();
+      while(running && myGen===gen && (performance.now()-t0)/1000 < interval){
+        const now=performance.now();
+        if(paused) t0+=now-last;
+        last=now;
+        await delay(50);
+      }
+      if(myGen!==gen) return;
+    }
+    clearInterval(cdTimer);
+  }
+
+  async function start(){
+    audioCtx.resume();
+    await preloadPromise;
+    gen++;
+    const myGen=gen;
+    pool=buildPool();
+    if(pool.length===0){ showToast('当前设置无可播报组合'); return; }
+    running=true; paused=false; count=0; recent=[];
+    $('count').textContent=0; $('history').innerHTML='<span class="empty">尚无</span>';
+    $('btnStart').disabled=true; $('btnPause').disabled=false; $('btnStop').disabled=false;
+    $('btnPause').textContent='暂停';
+    loop(myGen);
+  }
+  function togglePause(){
+    if(!running) return;
+    paused=!paused;
+    $('btnPause').textContent=paused?'继续':'暂停';
+  }
+  function stopAll(){
+    gen++;
+    running=false; paused=false; clearInterval(cdTimer);
+    if(currentSrc){ try{currentSrc.stop();}catch(e){} currentSrc=null; }
+    $('btnStart').disabled=false; $('btnPause').disabled=true; $('btnStop').disabled=true;
+    $('btnPause').textContent='暂停'; $('cd').textContent='—';
+    render(null);
+  }
+  function showToast(msg){ const t=$('toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',3000); }
+
+  $('btnStart').onclick=start;
+  $('btnPause').onclick=togglePause;
+  $('btnStop').onclick=stopAll;
+  const preloadPromise = preload();
+</script>
+</body>
+</html>
