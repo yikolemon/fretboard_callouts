@@ -100,6 +100,9 @@
   .pip-display .note{color:var(--accent-2)}
   .pip-display .hint{font-size:20px;color:var(--muted);font-weight:400}
   .pip-btn{min-width:120px}
+  .strings{display:flex;flex-wrap:wrap;gap:10px}
+  .str-chk{display:flex;align-items:center;gap:4px;font-size:14px;cursor:pointer}
+  .str-chk input{width:16px;height:16px;accent-color:var(--accent)}
 </style>
 </head>
 <body>
@@ -124,7 +127,7 @@
       </div>
       <div class="field">
         <label>品位范围 止</label>
-        <input type="number" id="fretHi" value="7" min="0" max="24" step="1">
+        <input type="number" id="fretHi" value="12" min="0" max="24" step="1">
       </div>
       <div class="field">
         <label>音量</label>
@@ -132,6 +135,17 @@
       </div>
       <div class="field check" style="align-self:end">
         <input type="checkbox" id="sharps"><label for="sharps" style="margin:0">包含升降号 (#)</label>
+      </div>
+      <div class="field full">
+        <label>弦范围</label>
+        <div class="strings" id="strings">
+          <label class="str-chk"><input type="checkbox" value="1" checked>1弦</label>
+          <label class="str-chk"><input type="checkbox" value="2" checked>2弦</label>
+          <label class="str-chk"><input type="checkbox" value="3" checked>3弦</label>
+          <label class="str-chk"><input type="checkbox" value="4" checked>4弦</label>
+          <label class="str-chk"><input type="checkbox" value="5" checked>5弦</label>
+          <label class="str-chk"><input type="checkbox" value="6" checked>6弦</label>
+        </div>
       </div>
     </section>
 
@@ -224,8 +238,10 @@
     const hi = Math.min(24, parseInt(document.getElementById('fretHi').value)||0);
     const sharps = document.getElementById('sharps').checked;
     const lo2=Math.min(lo,hi), hi2=Math.max(lo,hi);
+    const selStrings=new Set([...document.querySelectorAll('#strings input:checked')].map(c=>parseInt(c.value)));
     const pool=[];
     for(let s=1;s<=6;s++){
+      if(!selStrings.has(s)) continue;
       const set=new Set();
       for(let f=lo2;f<=hi2;f++){
         const idx=(STRINGS[s]+f)%12;
